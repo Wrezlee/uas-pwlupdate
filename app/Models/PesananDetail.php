@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class PesananDetail extends Model
+{
+    protected $table = 'pesanan_detail';
+    protected $primaryKey = 'id_detail';
+    public $timestamps = false;
+
+    protected $fillable = [
+        'id_pesanan',
+        'id_barang',
+        'jumlah',
+        'harga',
+        'subtotal'
+    ];
+
+    public function pesanan()
+    {
+        return $this->belongsTo(Pesanan::class, 'id_pesanan');
+    }
+
+    public function barang()
+    {
+        return $this->belongsTo(Barang::class, 'id_barang');
+    }
+}
