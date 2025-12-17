@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
 use App\Models\Barang;
+use App\Models\Notifikasi;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class PesananController extends Controller
 {
@@ -84,6 +86,15 @@ class PesananController extends Controller
 
         DB::beginTransaction();
         try {
+            // Check stock availability for new order
+            foreach ($request->barang as $index => $id_barang) {
+                $jumlah = $request->jumlah[$index];
+                $barang = Barang::find($id_barang);
+                if ($barang->stok < $jumlah) {
+                    throw new \Exception("Stok {$barang->nama_barang} tidak cukup. Stok tersedia: {$barang->stok}");
+                }
+            }
+
             // Create pesanan
             $pesanan = Pesanan::create([
                 'nama_pembeli' => $request->nama_pembeli,
@@ -94,7 +105,7 @@ class PesananController extends Controller
                 'status' => $request->status
             ]);
 
-            // Create pesanan details
+            // Create pesanan details and decrement stock
             foreach ($request->barang as $index => $id_barang) {
                 $jumlah = $request->jumlah[$index];
                 $harga = $request->harga[$index];
@@ -107,7 +118,19 @@ class PesananController extends Controller
                     'harga' => $harga,
                     'subtotal' => $subtotal
                 ]);
+
+                // Decrement stock
+                Barang::where('id_barang', $id_barang)->decrement('stok', $jumlah);
             }
+
+            // Create notification
+            Notifikasi::create([
+                'id_user' => null,
+                'id_pesanan' => $pesanan->id_pesanan,
+                'pesan' => "Pesanan baru dari {$request->nama_pembeli}",
+                'status' => 'belum_dibaca',
+                'tanggal' => Carbon::now()
+            ]);
 
             DB::commit();
             return redirect()->route('pesanan.index')
