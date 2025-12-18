@@ -1,4 +1,5 @@
 <?php
+// app/Models/PesananDetail.php
 
 namespace App\Models;
 
@@ -8,23 +9,24 @@ class PesananDetail extends Model
 {
     protected $table = 'pesanan_detail';
     protected $primaryKey = 'id_detail';
-    public $timestamps = false;
-
+    public $incrementing = true;
+    
     protected $fillable = [
         'id_pesanan',
         'id_barang',
         'jumlah',
-        'harga',
-        'subtotal'
+        'harga_saat_itu'
     ];
-
+    
+    // Relasi dengan pesanan
     public function pesanan()
     {
-        return $this->belongsTo(Pesanan::class, 'id_pesanan');
+        return $this->belongsTo(Pesanan::class, 'id_pesanan', 'id_pesanan');
     }
-
+    
+    // Relasi dengan barang
     public function barang()
     {
-        return $this->belongsTo(Barang::class, 'id_barang');
+        return $this->belongsTo(Barang::class, 'id_barang', 'id');
     }
 }

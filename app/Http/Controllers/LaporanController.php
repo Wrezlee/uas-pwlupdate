@@ -2,24 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Pesanan;
 use App\Models\Barang;
-
+use Illuminate\Http\Request;
 
 class LaporanController extends Controller
 {
     public function penjualan()
     {
-        return view('laporan.penjualan', [
-            'pesanan' => Pesanan::where('status','selesai')->get()
-        ]);
+        // Logika laporan penjualan
+        $pesanan = Pesanan::with('barang')->latest()->get();
+        
+        return view('laporan.penjualan', compact('pesanan'));
     }
 
     public function stok()
     {
-        return view('laporan.stok', [
-            'barangs' => Barang::all()
-        ]);
+        // Logika laporan stok
+        $barang = Barang::orderBy('nama_barang')->get();
+        
+        return view('laporan.stok', compact('barang'));
     }
 }
