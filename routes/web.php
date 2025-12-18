@@ -93,48 +93,51 @@ Route::middleware('auth')->group(function () {
     // STOK MANAGEMENT
     // =======================
     Route::prefix('stok-masuk')->name('stok.masuk.')->controller(StokMasukController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/create', 'create');
-        Route::post('/', 'store');
-        Route::get('/{stok_masuk}/edit', 'edit');
-        Route::put('/{stok_masuk}', 'update');
-        Route::delete('/{stok_masuk}', 'destroy');
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{stok_masuk}/edit', 'edit')->name('edit');
+        Route::put('/{stok_masuk}', 'update')->name('update');
+        Route::delete('/{stok_masuk}', 'destroy')->name('destroy');
     });
-    
+
+        
     Route::prefix('stok-keluar')->name('stok.keluar.')->controller(StokKeluarController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/create', 'create');
-        Route::post('/', 'store');
-        Route::get('/{stok_keluar}/edit', 'edit');
-        Route::put('/{stok_keluar}', 'update');
-        Route::delete('/{stok_keluar}', 'destroy');
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{stok_keluar}/edit', 'edit')->name('edit');
+        Route::put('/{stok_keluar}', 'update')->name('update');
+        Route::delete('/{stok_keluar}', 'destroy')->name('destroy');
     });
+
     
     // =======================
     // LAPORAN
     // =======================
     Route::prefix('laporan')->name('laporan.')->controller(LaporanController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/penjualan', 'penjualan');
-        Route::get('/stok', 'stok');
-        Route::get('/keuangan', 'keuangan');
-        
-        // Export
+        Route::get('/', 'index')->name('index');
+        Route::get('/penjualan', 'penjualan')->name('penjualan');
+        Route::get('/stok', 'stok')->name('stok');
+        Route::get('/keuangan', 'keuangan')->name('keuangan');
+
         Route::prefix('export')->name('export.')->group(function () {
-            Route::get('/penjualan', 'exportPenjualan');
-            Route::get('/stok', 'exportStok');
+            Route::get('/penjualan', 'exportPenjualan')->name('penjualan');
+            Route::get('/stok', 'exportStok')->name('stok');
         });
     });
+
     
     // =======================
     // PROFILE
     // =======================
     Route::prefix('profile')->name('profile.')->controller(ProfileController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/edit', 'edit');
-        Route::put('/update', 'update');
-        Route::put('/update-password', 'updatePassword');
+        Route::get('/', 'index')->name('index');
+        Route::get('/edit', 'edit')->name('edit');
+        Route::put('/update', 'update')->name('update');
+        Route::put('/update-password', 'update-password')->name('update-password');
     });
+
     
     // =======================
     // SETTINGS

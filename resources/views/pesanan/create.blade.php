@@ -145,32 +145,42 @@ function addItemRow() {
     itemDiv.dataset.index = itemCounter;
     
     itemDiv.innerHTML = `
-        <div class="row align-items-end">
-            <div class="col-md-4">
-                <label class="form-label">Barang <span class="text-danger">*</span></label>
-                <select class="form-select barang-select" name="barang[]" required>
-                    <option value="">-- Pilih Barang --</option>
-                    ${barangData.map(b => `<option value="${b.id}" data-harga="${b.harga}">${b.nama} - ${formatRupiah(b.harga)}</option>`).join('')}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Jumlah <span class="text-danger">*</span></label>
-                <input type="number" class="form-control jumlah-input" name="jumlah[]" min="1" value="1" required>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Harga Satuan</label>
-                <input type="number" class="form-control harga-input" name="harga[]" readonly required>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Subtotal</label>
-                <input type="text" class="form-control subtotal-display" readonly>
-            </div>
-            <div class="col-md-1">
-                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeItemRow(this)">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
+    <div class="row align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Barang *</label>
+            <select class="form-select barang-select" name="barang[${itemCounter}][id]" required>
+                <option value="">-- Pilih Barang --</option>
+                ${barangData.map(b => `
+                    <option value="${b.id_barang}" data-harga="${b.harga}">
+                        ${b.nama_barang} - ${formatRupiah(b.harga)}
+                    </option>
+                `).join('')}
+            </select>
         </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Jumlah *</label>
+            <input type="number" class="form-control jumlah-input"
+                name="barang[${itemCounter}][jumlah]" min="1" value="1" required>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Harga</label>
+            <input type="number" class="form-control harga-input" readonly>
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Subtotal</label>
+            <input type="text" class="form-control subtotal-display" readonly>
+        </div>
+
+        <div class="col-md-1">
+            <button type="button" class="btn btn-danger btn-sm w-100"
+                    onclick="removeItemRow(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
     `;
     
     container.appendChild(itemDiv);
