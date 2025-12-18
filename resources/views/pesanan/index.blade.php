@@ -1,139 +1,284 @@
 @extends('layouts.app')
 
 @section('title', 'Daftar Pesanan')
-@section('breadcrumb', 'Pesanan')
 
 @section('content')
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="card-title mb-0">Daftar Pesanan</h4>
-            </div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-3">
-                    <div>
-                        <a href="{{ route('pesanan.create') }}" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Tambah Pesanan
-                        </a>
-                    </div>
-                    <div class="d-flex">
-                        <input type="text" class="form-control me-2" placeholder="Cari pesanan..." id="searchInput">
-                        <select class="form-select me-2" id="statusFilter">
-                            <option value="">Semua Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="diproses">Diproses</option>
-                            <option value="selesai">Selesai</option>
-                        </select>
+<div class="container-fluid px-4">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-start border-primary border-4 shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-primary text-uppercase mb-1">
+                                Total Pesanan
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">{{ $totalPesanan }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Nama Pembeli</th>
-                                <th>No. HP</th>
-                                <th>Tanggal</th>
-                                <th>Total Harga</th>
-                                <th>Status</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pesananTable">
-                            <!-- Data pesanan akan dimuat di sini -->
-                            <tr>
-                                <td colspan="7" class="text-center text-muted">
-                                    <div class="d-flex justify-content-center">
-                                        <div class="spinner-border spinner-border-sm me-2" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        Memuat data pesanan...
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-start border-warning border-4 shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-warning text-uppercase mb-1">
+                                Pending
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">{{ $pendingCount }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-start border-info border-4 shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-info text-uppercase mb-1">
+                                Diproses
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">{{ $diprosesCount }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cog fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-start border-success border-4 shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-success text-uppercase mb-1">
+                                Selesai (Revenue)
+                            </div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-wrap justify-content-between align-items-center">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-shopping-cart me-2"></i>Daftar Pesanan
+            </h6>
+            <div class="mt-2 mt-md-0">
+                <a href="{{ route('pesanan.create') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i>Tambah Pesanan
+                </a>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card-body border-bottom">
+            <form method="GET" id="filterForm" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control form-control-sm" 
+                           placeholder="Cari nama/no HP..." 
+                           value="{{ request('search') }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-control form-control-sm">
+                        <option value="">Semua Status</option>
+                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="diproses" {{ request('status') == 'diproses' ? 'selected' : '' }}>Diproses</option>
+                        <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="start_date" class="form-control form-control-sm" 
+                           value="{{ request('start_date') }}">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="end_date" class="form-control form-control-sm" 
+                           value="{{ request('end_date') }}">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="col-md-1">
+                    <a href="{{ route('pesanan.index') }}" class="btn btn-secondary btn-sm w-100">
+                        <i class="fas fa-redo"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Table -->
+        <div class="card-body p-0">
+            @if($pesanan->count() > 0)
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="5%">ID</th>
+                            <th>Pembeli</th>
+                            <th width="12%">No HP</th>
+                            <th width="12%">Tanggal</th>
+                            <th width="15%">Total</th>
+                            <th width="12%">Status</th>
+                            <th width="20%" class="text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($pesanan as $item)
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">#{{ str_pad($item->id_pesanan, 4, '0', STR_PAD_LEFT) }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ $item->nama_pembeli }}</strong><br>
+                                <small class="text-muted">{{ Str::limit($item->alamat, 30) }}</small>
+                            </td>
+                            <td>
+                                <small>{{ $item->no_hp }}</small>
+                            </td>
+                            <td>
+                                {{ \Carbon\Carbon::parse($item->tanggal)->format('d/m/Y') }}
+                            </td>
+                            <td>
+                                <span class="fw-bold text-primary">
+                                    Rp {{ number_format($item->total_harga, 0, ',', '.') }}
+                                </span>
+                            </td>
+                            <td>
+                                @php
+                                    $statusConfig = [
+                                        'pending' => ['class' => 'secondary', 'icon' => 'clock'],
+                                        'diproses' => ['class' => 'warning', 'icon' => 'cog'],
+                                        'selesai' => ['class' => 'success', 'icon' => 'check-circle']
+                                    ];
+                                    $config = $statusConfig[$item->status] ?? ['class' => 'secondary', 'icon' => 'question'];
+                                @endphp
+                                <span class="badge bg-{{ $config['class'] }} px-3 py-1">
+                                    <i class="fas fa-{{ $config['icon'] }} me-1"></i>
+                                    {{ ucfirst($item->status) }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <!-- View Button -->
+                                    <a href="{{ route('pesanan.show', $item->id_pesanan) }}" 
+                                       class="btn btn-outline-primary" 
+                                       title="Detail">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
+                                    <!-- Edit Button -->
+                                    <a href="{{ route('pesanan.edit', $item->id_pesanan) }}" 
+                                       class="btn btn-outline-warning" 
+                                       title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    
+                                    <!-- Status Dropdown -->
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-info dropdown-toggle" 
+                                                data-bs-toggle="dropdown" title="Ubah Status">
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item status-change" 
+                                                   href="#" 
+                                                   data-id="{{ $item->id_pesanan }}" 
+                                                   data-status="pending">
+                                                    <i class="fas fa-clock text-secondary me-2"></i>Pending
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item status-change" 
+                                                   href="#" 
+                                                   data-id="{{ $item->id_pesanan }}" 
+                                                   data-status="diproses">
+                                                    <i class="fas fa-cog text-warning me-2"></i>Diproses
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item status-change" 
+                                                   href="#" 
+                                                   data-id="{{ $item->id_pesanan }}" 
+                                                   data-status="selesai">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>Selesai
+                                                </a>
+                                            </li>
+                                        </ul>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                    
+                                    <!-- Delete Button -->
+                                    <button type="button" 
+                                            class="btn btn-outline-danger" 
+                                            onclick="confirmDelete({{ $item->id_pesanan }}, '{{ $item->nama_pembeli }}')"
+                                            title="Hapus">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
 
-                <!-- Pagination -->
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div>
-                        <small class="text-muted">Menampilkan <span id="showingFrom">0</span> - <span id="showingTo">0</span> dari <span id="totalRecords">0</span> pesanan</small>
+            <!-- Pagination -->
+            <div class="card-footer bg-white border-top">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            Menampilkan {{ $pesanan->firstItem() }} - {{ $pesanan->lastItem() }} 
+                            dari {{ $pesanan->total() }} pesanan
+                        </small>
                     </div>
-                    <nav aria-label="Pagination">
-                        <ul class="pagination pagination-sm mb-0" id="pagination">
-                            <!-- Pagination links akan dimuat di sini -->
-                        </ul>
-                    </nav>
+                    <div class="col-md-6">
+                        <nav class="float-end">
+                            {{ $pesanan->withQueryString()->links('vendor.pagination.bootstrap-5') }}
+                        </nav>
+                    </div>
                 </div>
             </div>
+            @else
+            <!-- Empty State -->
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-shopping-cart fa-4x text-muted"></i>
+                </div>
+                <h5 class="text-muted mb-3">Belum ada data pesanan</h5>
+                <p class="text-muted mb-4">Tambahkan pesanan pertama Anda untuk mulai mengelola transaksi</p>
+                <a href="{{ route('pesanan.create') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus-circle me-2"></i>Tambah Pesanan Pertama
+                </a>
+            </div>
+            @endif
         </div>
     </div>
 </div>
 
-<!-- Modal Detail Pesanan -->
-<div class="modal fade" id="detailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Detail Pesanan #<span id="detailId"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <strong>Nama Pembeli:</strong> <span id="detailNama"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>No. HP:</strong> <span id="detailHp"></span>
-                    </div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <strong>Tanggal:</strong> <span id="detailTanggal"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Status:</strong> <span id="detailStatus"></span>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <strong>Alamat:</strong> <span id="detailAlamat"></span>
-                </div>
-
-                <h6>Detail Barang:</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Barang</th>
-                                <th>Jumlah</th>
-                                <th>Harga</th>
-                                <th>Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody id="detailBarangTable">
-                            <!-- Detail barang akan dimuat di sini -->
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <th colspan="3" class="text-end">Total:</th>
-                                <th id="detailTotal">Rp 0</th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                <a href="#" class="btn btn-primary" id="editBtn">Edit Pesanan</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Konfirmasi Hapus -->
+<!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -142,15 +287,18 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Apakah Anda yakin ingin menghapus pesanan <strong id="deleteNama"></strong>?</p>
-                <p class="text-danger small">Tindakan ini tidak dapat dibatalkan.</p>
+                <p>Apakah Anda yakin ingin menghapus pesanan dari <strong id="deleteName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Pesanan yang sudah selesai tidak dapat dihapus.
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                 <form id="deleteForm" method="POST" style="display: inline;">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn btn-danger">Hapus</button>
+                    <button type="submit" class="btn btn-danger">Ya, Hapus</button>
                 </form>
             </div>
         </div>
@@ -158,184 +306,107 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+    .status-badge {
+        min-width: 90px;
+        display: inline-block;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script>
-// Routes untuk aksi tombol - DIPERBAIKI
-const routes = {
-    edit: '{{ url("pesanan") }}/',  
-    destroy: '{{ url("pesanan") }}/',
-    confirmDelete: '{{ url("pesanan") }}/'
-};
-
-// Data pesanan dari controller
-let sampleData = @json($pesanan ?? []);
-
-let currentPage = 1;
-let itemsPerPage = 10;
-let filteredData = [...sampleData];
-
-function formatRupiah(amount) {
-    return 'Rp ' + amount.toLocaleString('id-ID');
-}
-
-function getStatusBadge(status) {
-    const badges = {
-        'pending': '<span class="badge bg-secondary">Pending</span>',
-        'diproses': '<span class="badge bg-warning text-dark">Diproses</span>',
-        'selesai': '<span class="badge bg-success">Selesai</span>'
-    };
-    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
-}
-
-function renderTable(data, page = 1) {
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageData = data.slice(startIndex, endIndex);
-
-    const tbody = document.getElementById('pesananTable');
-    tbody.innerHTML = '';
-
-    if (pageData.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center text-muted">
-                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                    Tidak ada data pesanan ditemukan
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    pageData.forEach(pesanan => {
-        const row = `
-            <tr>
-                <td>${pesanan.id}</td>
-                <td>${pesanan.nama_pembeli}</td>
-                <td>${pesanan.no_hp}</td>
-                <td>${new Date(pesanan.tanggal).toLocaleDateString('id-ID')}</td>
-                <td>${formatRupiah(pesanan.total_harga)}</td>
-                <td>${getStatusBadge(pesanan.status)}</td>
-                <td>
-                    <div class="btn-group btn-group-sm">
-                        <a href="{{ url('pesanan') }}/${pesanan.id}" class="btn btn-outline-primary" title="Detail">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="${routes.edit}${pesanan.id}/edit" class="btn btn-outline-warning" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <button class="btn btn-outline-danger" onclick="confirmDelete(${pesanan.id}, '${pesanan.nama_pembeli}')" title="Hapus">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
-    });
-
-    // Update info
-    document.getElementById('showingFrom').textContent = startIndex + 1;
-    document.getElementById('showingTo').textContent = Math.min(endIndex, data.length);
-    document.getElementById('totalRecords').textContent = data.length;
-}
-
-function renderPagination(data) {
-    const totalPages = Math.ceil(data.length / itemsPerPage);
-    const pagination = document.getElementById('pagination');
-    pagination.innerHTML = '';
-
-    if (totalPages <= 1) return;
-
-    // Previous button
-    const prevBtn = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-        <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>
-    </li>`;
-    pagination.innerHTML += prevBtn;
-
-    // Page numbers
-    for (let i = 1; i <= totalPages; i++) {
-        const pageBtn = `<li class="page-item ${i === currentPage ? 'active' : ''}">
-            <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
-        </li>`;
-        pagination.innerHTML += pageBtn;
-    }
-
-    // Next button
-    const nextBtn = `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-        <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>
-    </li>`;
-    pagination.innerHTML += nextBtn;
-}
-
-function changePage(page) {
-    currentPage = page;
-    renderTable(filteredData, currentPage);
-    renderPagination(filteredData);
-    return false;
-}
-
-function filterData() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-
-    filteredData = sampleData.filter(pesanan => {
-        const matchesSearch = pesanan.nama_pembeli.toLowerCase().includes(searchTerm) ||
-                             pesanan.no_hp.includes(searchTerm) ||
-                             pesanan.alamat.toLowerCase().includes(searchTerm);
-        const matchesStatus = !statusFilter || pesanan.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
-
-    currentPage = 1;
-    renderTable(filteredData, currentPage);
-    renderPagination(filteredData);
-}
-
-function showDetail(id) {
-    const pesanan = sampleData.find(p => p.id === id);
-    if (!pesanan) return;
-
-    document.getElementById('detailId').textContent = pesanan.id;
-    document.getElementById('detailNama').textContent = pesanan.nama_pembeli;
-    document.getElementById('detailHp').textContent = pesanan.no_hp;
-    document.getElementById('detailTanggal').textContent = new Date(pesanan.tanggal).toLocaleDateString('id-ID');
-    document.getElementById('detailStatus').innerHTML = getStatusBadge(pesanan.status);
-    document.getElementById('detailAlamat').textContent = pesanan.alamat;
-    document.getElementById('detailTotal').textContent = formatRupiah(pesanan.total_harga);
-    document.getElementById('editBtn').href = `${routes.edit}${pesanan.id}/edit`;
-
-    const tbody = document.getElementById('detailBarangTable');
-    tbody.innerHTML = '';
-    pesanan.details.forEach(detail => {
-        const row = `
-            <tr>
-                <td>${detail.nama_barang}</td>
-                <td>${detail.jumlah}</td>
-                <td>${formatRupiah(detail.harga)}</td>
-                <td>${formatRupiah(detail.subtotal)}</td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
-    });
-
-    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+// Confirm Delete Function
+function confirmDelete(id, name) {
+    document.getElementById('deleteName').textContent = name;
+    document.getElementById('deleteForm').action = `/pesanan/${id}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
     modal.show();
 }
 
-function confirmDelete(id, nama) {
-    // Redirect to hapus confirmation page
-    window.location.href = `${routes.confirmDelete}${id}/hapus`;
-}
+// Status Change with AJAX
+document.querySelectorAll('.status-change').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const id = this.dataset.id;
+        const newStatus = this.dataset.status;
+        
+        if (!confirm(`Ubah status pesanan menjadi "${newStatus}"?`)) {
+            return;
+        }
+        
+        fetch(`/pesanan/${id}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+                document.getElementById('toastMessage').textContent = data.message;
+                toast.show();
+                
+                // Reload page after 1.5 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Terjadi kesalahan saat mengubah status');
+        });
+    });
+});
 
-// Event listeners
-document.getElementById('searchInput').addEventListener('input', filterData);
-document.getElementById('statusFilter').addEventListener('change', filterData);
+// Quick Search with Debounce
+let searchTimeout;
+document.querySelector('input[name="search"]').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        document.getElementById('filterForm').submit();
+    }, 500);
+});
 
-// Initialize
+// Set max date for date inputs to today
 document.addEventListener('DOMContentLoaded', function() {
-    renderTable(filteredData, currentPage);
-    renderPagination(filteredData);
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        input.max = today;
+    });
+    
+    // Auto-focus search input if it has value
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput.value) {
+        searchInput.focus();
+    }
 });
 </script>
+
+<!-- Toast for status updates -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="liveToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto"><i class="fas fa-check-circle text-success me-2"></i>Berhasil</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            Status berhasil diubah!
+        </div>
+    </div>
+</div>
 @endpush

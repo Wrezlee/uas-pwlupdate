@@ -10,14 +10,73 @@ use Illuminate\Support\Facades\DB;
 
 class PesananController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $pesanan = Pesanan::with('details.barang')
+        // =====================
+        // QUERY DASAR
+        // =====================
+        $query = Pesanan::query();
+
+        // =====================
+        // FILTER SEARCH
+        // =====================
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nama_pembeli', 'like', '%' . $request->search . '%')
+                ->orWhere('no_hp', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        // =====================
+        // FILTER STATUS
+        // =====================
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // =====================
+        // FILTER TANGGAL
+        // =====================
+        if ($request->filled('start_date')) {
+            $query->whereDate('tanggal', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('tanggal', '<=', $request->end_date);
+        }
+
+        // =====================
+        // DATA PESANAN (TABLE)
+        // =====================
+        $pesanan = $query
             ->orderByDesc('tanggal')
             ->paginate(10);
 
-        return view('pesanan.index', compact('pesanan'));
+        // =====================
+        // STATISTIK CARD
+        // =====================
+        $totalPesanan  = Pesanan::count();
+        $pendingCount  = Pesanan::where('status', 'pending')->count();
+        $diprosesCount = Pesanan::where('status', 'diproses')->count();
+
+        // =====================
+        // TOTAL REVENUE (SELESAI)
+        // =====================
+        $totalRevenue = Pesanan::where('status', 'selesai')
+            ->sum('total_harga');
+
+        // =====================
+        // RETURN VIEW
+        // =====================
+        return view('pesanan.index', compact(
+            'pesanan',
+            'totalPesanan',
+            'pendingCount',
+            'diprosesCount',
+            'totalRevenue'
+        ));
     }
+
 
     public function create()
     {
