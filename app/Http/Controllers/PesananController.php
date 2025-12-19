@@ -10,73 +10,43 @@ use Illuminate\Support\Facades\DB;
 
 class PesananController extends Controller
 {
+    /* ================= ADMIN ================= */
     public function index(Request $request)
     {
-        // =====================
-        // QUERY DASAR
-        // =====================
         $query = Pesanan::query();
 
-        // =====================
-        // FILTER SEARCH
-        // =====================
+        // Filter search
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('nama_pembeli', 'like', '%' . $request->search . '%')
-                ->orWhere('no_hp', 'like', '%' . $request->search . '%');
+                  ->orWhere('no_hp', 'like', '%' . $request->search . '%');
             });
         }
 
-        // =====================
-        // FILTER STATUS
-        // =====================
+        // Filter status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // =====================
-        // FILTER TANGGAL
-        // =====================
+        // Filter tanggal
         if ($request->filled('start_date')) {
             $query->whereDate('tanggal', '>=', $request->start_date);
         }
-
         if ($request->filled('end_date')) {
             $query->whereDate('tanggal', '<=', $request->end_date);
         }
 
-        // =====================
-        // DATA PESANAN (TABLE)
-        // =====================
-        $pesanan = $query
-            ->orderByDesc('tanggal')
-            ->paginate(10);
+        $pesanan = $query->orderByDesc('tanggal')->paginate(10);
 
-        // =====================
-        // STATISTIK CARD
-        // =====================
         $totalPesanan  = Pesanan::count();
         $pendingCount  = Pesanan::where('status', 'pending')->count();
         $diprosesCount = Pesanan::where('status', 'diproses')->count();
+        $totalRevenue  = Pesanan::where('status', 'selesai')->sum('total_harga');
 
-        // =====================
-        // TOTAL REVENUE (SELESAI)
-        // =====================
-        $totalRevenue = Pesanan::where('status', 'selesai')
-            ->sum('total_harga');
-
-        // =====================
-        // RETURN VIEW
-        // =====================
         return view('pesanan.index', compact(
-            'pesanan',
-            'totalPesanan',
-            'pendingCount',
-            'diprosesCount',
-            'totalRevenue'
+            'pesanan', 'totalPesanan', 'pendingCount', 'diprosesCount', 'totalRevenue'
         ));
     }
-
 
     public function create()
     {
@@ -87,18 +57,17 @@ class PesananController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nama_pembeli'        => 'required|string|max:100',
-            'no_hp'               => 'required|string|max:20',
-            'alamat'              => 'required|string',
-            'tanggal'             => 'required|date',
-            'status'              => 'required|in:pending,diproses,selesai',
-            'barang'              => 'required|array|min:1',
-            'barang.*.id'         => 'required|exists:barang,id_barang',
-            'barang.*.jumlah'     => 'required|integer|min:1',
+            'nama_pembeli' => 'required|string|max:100',
+            'no_hp'        => 'required|string|max:20',
+            'alamat'       => 'required|string',
+            'tanggal'      => 'required|date',
+            'status'       => 'required|in:pending,diproses,selesai',
+            'barang'       => 'required|array|min:1',
+            'barang.*.id'  => 'required|exists:barang,id_barang',
+            'barang.*.jumlah' => 'required|integer|min:1',
         ]);
 
         DB::transaction(function () use ($request) {
-
             $pesanan = Pesanan::create([
                 'nama_pembeli' => $request->nama_pembeli,
                 'no_hp'        => $request->no_hp,
@@ -111,11 +80,7 @@ class PesananController extends Controller
             $total = 0;
 
             foreach ($request->barang as $item) {
-
-                $barang = Barang::where('id_barang', $item['id'])
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
+                $barang = Barang::lockForUpdate()->findOrFail($item['id']);
                 $jumlah = $item['jumlah'];
 
                 if ($barang->stok < $jumlah) {
@@ -136,14 +101,11 @@ class PesananController extends Controller
                 $total += $subtotal;
             }
 
-            $pesanan->update([
-                'total_harga' => $total
-            ]);
+            $pesanan->update(['total_harga' => $total]);
         });
 
-        return redirect()
-            ->route('pesanan.index')
-            ->with('success', 'Pesanan berhasil disimpan');
+        return redirect()->route('pesanan.index')
+                         ->with('success', 'Pesanan berhasil disimpan');
     }
 
     public function show(Pesanan $pesanan)
@@ -155,18 +117,74 @@ class PesananController extends Controller
     public function destroy(Pesanan $pesanan)
     {
         DB::transaction(function () use ($pesanan) {
-
             foreach ($pesanan->details as $detail) {
                 Barang::where('id_barang', $detail->id_barang)
-                    ->increment('stok', $detail->jumlah);
+                      ->increment('stok', $detail->jumlah);
             }
-
             $pesanan->details()->delete();
             $pesanan->delete();
         });
 
-        return redirect()
-            ->route('pesanan.index')
-            ->with('success', 'Pesanan berhasil dihapus');
+        return redirect()->route('pesanan.index')
+                         ->with('success', 'Pesanan berhasil dihapus');
+    }
+
+    /* ================= GUEST ================= */
+    public function createForGuest()
+    {
+        $barang = Barang::orderBy('nama_barang')->get();
+        return view('pesanan.create-guest', compact('barang'));
+    }
+
+    public function storeFromGuest(Request $request)
+    {
+        $request->validate([
+            'nama_pembeli' => 'required|string|max:100',
+            'no_hp'        => 'required|string|max:20',
+            'email'        => 'nullable|email|max:255',
+            'alamat'       => 'required|string',
+            'barang_id'    => 'required|exists:barang,id_barang',
+            'jumlah'       => 'required|integer|min:1',
+            'catatan'      => 'nullable|string|max:500',
+        ]);
+
+        DB::transaction(function () use ($request, &$pesanan) {
+            $barang = Barang::lockForUpdate()->findOrFail($request->barang_id);
+
+            if ($barang->stok < $request->jumlah) {
+                abort(422, "Stok {$barang->nama_barang} tidak cukup");
+            }
+
+            $subtotal = $barang->harga * $request->jumlah;
+
+            $pesanan = Pesanan::create([
+                'nama_pembeli' => $request->nama_pembeli,
+                'no_hp'        => $request->no_hp,
+                'email'        => $request->email,
+                'alamat'       => $request->alamat,
+                'total_harga'  => $subtotal,
+                'status'       => 'pending',
+            ]);
+
+            PesananDetail::create([
+                'id_pesanan' => $pesanan->id_pesanan,
+                'id_barang'  => $barang->id_barang,
+                'jumlah'     => $request->jumlah,
+                'harga'      => $barang->harga,
+                'subtotal'   => $subtotal,
+                'catatan'    => $request->catatan,
+            ]);
+
+            $barang->decrement('stok', $request->jumlah);
+        });
+
+        return redirect()->route('pembeli.pesanan.success', $pesanan->id_pesanan)
+                         ->with('info', 'Pesanan berhasil dibuat!');
+    }
+
+    public function success(Pesanan $pesanan)
+    {
+        $pesanan->load('details.barang');
+        return view('pesanan.success', compact('pesanan'));
     }
 }
