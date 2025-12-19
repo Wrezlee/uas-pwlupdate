@@ -275,7 +275,7 @@
                             </ul>
                         </div>
                         
-                        <a href="{{ route('sebagai.pembeli') }}" class="btn btn-pembeli btn-lg w-100">
+                        <a href="{{ route('pembeli.sebagai.pembeli') }}" class="btn btn-pembeli btn-lg w-100">
                             <i class="bi bi-arrow-right me-2"></i>Masuk Sebagai Pembeli
                         </a>
                         
