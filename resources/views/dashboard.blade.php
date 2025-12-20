@@ -171,49 +171,6 @@
 </div>
 
 <div class="row">
-    <!-- Notifikasi -->
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>Notifikasi Terbaru</strong>
-                @if($unreadNotifications > 0)
-                <span class="badge bg-danger">{{ $unreadNotifications }} baru</span>
-                @endif
-            </div>
-            <div class="card-body">
-                @forelse($notifikasi as $notif)
-                <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
-                    <div class="me-3">
-                        @php
-                            $bellClass = ($notif->status == 'belum_dibaca' || !$notif->dibaca) 
-                                ? 'text-warning' 
-                                : 'text-secondary';
-                        @endphp
-                        <i class="fas fa-bell fa-lg {{ $bellClass }}"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <p class="mb-0 {{ ($notif->status == 'belum_dibaca' || !$notif->dibaca) ? 'fw-bold' : '' }}">
-                            {{ $notif->pesan }}
-                        </p>
-                        <small class="text-medium-emphasis">
-                            @if($notif->tanggal instanceof \Carbon\Carbon)
-                                {{ $notif->tanggal->diffForHumans() }}
-                            @else
-                                {{ \Carbon\Carbon::parse($notif->tanggal)->diffForHumans() }}
-                            @endif
-                        </small>
-                    </div>
-                </div>
-                @empty
-                <div class="text-center text-medium-emphasis py-4">
-                    <i class="fas fa-bell-slash fa-2x mb-2 text-muted"></i><br>
-                    Tidak ada notifikasi
-                </div>
-                @endforelse
-            </div>
-        </div>
-    </div>
-
     <!-- Barang Terlaris -->
     <div class="col-md-6">
         <div class="card mb-4">
@@ -250,6 +207,86 @@
             </div>
         </div>
     </div>
+
+    <!-- Laporan Penjualan -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>Laporan Penjualan</strong>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <div class="fs-3 fw-bold text-primary">{{ $pesananHariIni }}</div>
+                            <small class="text-muted">Pesanan Hari Ini</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <div class="fs-3 fw-bold text-success">Rp {{ number_format($pendapatanHariIni / 1000, 0) }}K</div>
+                            <small class="text-muted">Pendapatan Hari Ini</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded">
+                            <div class="fs-3 fw-bold text-warning">{{ $stokGas }}</div>
+                            <small class="text-muted">Stok Gas Tersedia</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded">
+                            <div class="fs-3 fw-bold text-info">{{ $stokGalon }}</div>
+                            <small class="text-muted">Stok Galon Tersedia</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ route('laporan.penjualan') }}" class="btn btn-sm btn-primary w-100">
+                    <i class="fas fa-chart-bar me-1"></i> Lihat Laporan Lengkap
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aktivitas Terbaru -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Aktivitas Terbaru</strong>
+                <button type="button" class="btn btn-sm btn-primary" onclick="loadLatestNotifications()">
+                    <i class="fas fa-sync-alt me-1"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="10%">Waktu</th>
+                                <th width="15%">Jenis</th>
+                                <th width="40%">Deskripsi</th>
+                                <th width="25%">Detail</th>
+                                <th width="10%">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="realtimeNotifications">
+                            <!-- Notifikasi akan dimuat di sini -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Aktivitas otomatis diperbarui setiap 30 detik
+                </small>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -266,6 +303,33 @@
     .list-group-item:hover {
         background-color: #f8f9fa;
     }
+    
+    /* Notifikasi Styles */
+    .notification-new {
+        animation: pulse 2s infinite;
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+    
+    @keyframes pulse {
+        0% { background-color: rgba(255, 193, 7, 0.1); }
+        50% { background-color: rgba(255, 193, 7, 0.2); }
+        100% { background-color: rgba(255, 193, 7, 0.1); }
+    }
+    
+    .notification-type-pesanan { border-left: 4px solid #007bff; }
+    .notification-type-stok-masuk { border-left: 4px solid #28a745; }
+    .notification-type-stok-keluar { border-left: 4px solid #dc3545; }
+    .notification-type-system { border-left: 4px solid #6c757d; }
+    
+    /* Laporan Styles */
+    .stats-box {
+        transition: all 0.3s ease;
+    }
+    
+    .stats-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
 </style>
 @endpush
 
@@ -276,17 +340,32 @@
     document.addEventListener('DOMContentLoaded', function() {
         initializeCharts();
         setupAutoRefresh();
+        loadLatestNotifications(); // Load notifications on page load
+        
+        // Setup polling for new notifications
+        setupNotificationPolling();
     });
     
     function initializeCharts() {
         // Main Chart
         const mainChartCtx = document.getElementById('main-chart');
         if (mainChartCtx) {
-            const chartData = {
-                labels: @json($chartLabels),
+            const chartLabels = @json($chartLabels);
+            const chartData = @json($chartData);
+            
+            console.log('Chart Labels:', chartLabels);
+            console.log('Chart Data:', chartData);
+            
+            // Ensure data is valid
+            const validData = chartData.map(value => {
+                return value !== null ? parseFloat(value) : 0;
+            });
+            
+            const chartConfig = {
+                labels: chartLabels,
                 datasets: [{
                     label: 'Penjualan (Rp)',
-                    data: @json($chartData),
+                    data: validData,
                     backgroundColor: 'rgba(50, 31, 219, 0.1)',
                     borderColor: 'rgba(50, 31, 219, 1)',
                     borderWidth: 2,
@@ -295,107 +374,261 @@
                     pointBackgroundColor: 'rgba(50, 31, 219, 1)',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2,
-                    pointRadius: 4
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             };
             
-            new Chart(mainChartCtx, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
+            try {
+                new Chart(mainChartCtx, {
+                    type: 'line',
+                    data: chartConfig,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                                    }
+                                }
+                            }
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'Rp ' + value.toLocaleString('id-ID');
+                                    },
+                                    font: {
+                                        size: 11
+                                    }
+                                },
+                                grid: {
+                                    borderDash: [2, 2]
                                 }
                             }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return 'Rp ' + value.toLocaleString('id-ID');
-                                }
-                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'nearest'
                         }
                     }
-                }
-            });
+                });
+                console.log('Chart berhasil dibuat');
+            } catch (error) {
+                console.error('Error membuat chart:', error);
+                // Fallback: tampilkan pesan jika chart gagal
+                mainChartCtx.parentElement.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p>Grafik penjualan tidak dapat ditampilkan</p>
+                        <small>Data: ${validData.join(', ')}</small>
+                    </div>
+                `;
+            }
+        } else {
+            console.error('Chart canvas tidak ditemukan');
         }
         
-        // Mini Charts for Cards
-        createMiniChart('card-chart1', [65, 59, 84, 84, 51, 55, 40]);
-        createMiniChart('card-chart2', [1, 18, 9, 17, 34, 22, 11]);
-        createMiniChart('card-chart3', [78, 81, 80, 45, 34, 12, 40]);
-        createMiniChart('card-chart4', [35, 23, 56, 22, 97, 23, 64]);
+        // Mini Charts for Cards (gunakan data dummy)
+        createMiniChart('card-chart1', [30, 40, 35, 50, 45, 60, 55]);
+        createMiniChart('card-chart2', [100000, 150000, 120000, 180000, 200000, 160000, 220000]);
+        createMiniChart('card-chart3', [80, 75, 85, 70, 90, 80, 85]);
+        createMiniChart('card-chart4', [50, 55, 60, 52, 58, 62, 59]);
     }
     
     function createMiniChart(canvasId, data) {
         const ctx = document.getElementById(canvasId);
         if (ctx) {
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-                    datasets: [{
-                        data: data,
-                        backgroundColor: 'transparent',
-                        borderColor: 'rgba(255,255,255,.75)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    plugins: { legend: { display: false } },
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { display: false },
-                        y: { display: false }
+            try {
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{
+                            data: data,
+                            backgroundColor: 'transparent',
+                            borderColor: 'rgba(255,255,255,.85)',
+                            borderWidth: 2,
+                            tension: 0.4
+                        }]
                     },
-                    elements: {
-                        line: { 
-                            borderWidth: 2, 
-                            tension: 0.4 
+                    options: {
+                        plugins: { 
+                            legend: { display: false } 
                         },
-                        point: { 
-                            radius: 0, 
-                            hitRadius: 10, 
-                            hoverRadius: 4 
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { 
+                                display: false 
+                            },
+                            y: { 
+                                display: false 
+                            }
+                        },
+                        elements: {
+                            line: { 
+                                borderWidth: 2, 
+                                tension: 0.4 
+                            },
+                            point: { 
+                                radius: 0, 
+                                hitRadius: 10, 
+                                hoverRadius: 4 
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error('Error membuat mini chart:', canvasId, error);
+            }
         }
     }
     
+    // Load latest notifications
+    function loadLatestNotifications() {
+        fetch('{{ route("dashboard.notifications") }}', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const container = document.getElementById('realtimeNotifications');
+            if (container && data.success) {
+                container.innerHTML = data.html;
+                
+                // Play sound if there are new notifications
+                if (data.hasNewNotifications) {
+                    playNotificationSound();
+                    showToast('Ada aktivitas baru!', 'info');
+                }
+            }
+        })
+        .catch(error => console.error('Error loading notifications:', error));
+    }
+    
+    // Setup polling for new notifications every 30 seconds
+    function setupNotificationPolling() {
+        setInterval(() => {
+            loadLatestNotifications();
+        }, 30000); // 30 seconds
+    }
+    
+    // Auto refresh dashboard setiap 2 menit
     function setupAutoRefresh() {
-        // Auto refresh dashboard setiap 2 menit
         setTimeout(function() {
             window.location.reload();
         }, 120000); // 120000 ms = 2 menit
     }
     
-    // Refresh data tanpa reload page (optional)
-    function refreshDashboardData() {
-        fetch('{{ route("dashboard") }}', {
+    // Play notification sound
+    function playNotificationSound() {
+        try {
+            const audio = new Audio('{{ asset("sounds/notification.mp3") }}');
+            audio.volume = 0.3;
+            audio.play().catch(e => console.log('Audio play failed:', e));
+        } catch (e) {
+            console.log('Audio not available:', e);
+        }
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'info') {
+        // Create toast container if not exists
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'position-fixed top-0 end-0 p-3';
+            toastContainer.style = 'z-index: 11';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Create toast
+        const toastId = 'toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `toast align-items-center text-white bg-${type === 'info' ? 'primary' : type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        // Determine icon
+        let icon = 'info-circle';
+        if (type === 'success') icon = 'check-circle';
+        if (type === 'warning') icon = 'exclamation-triangle';
+        if (type === 'danger') icon = 'exclamation-triangle';
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-${icon} me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Initialize and show toast
+        const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+        bsToast.show();
+        
+        // Remove toast after hide
+        toast.addEventListener('hidden.bs.toast', function () {
+            toast.remove();
+        });
+    }
+    
+    // Mark notification as read
+    function markAsRead(notificationId) {
+        fetch(`/dashboard/notifications/${notificationId}/read`, {
+            method: 'POST',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
             }
         })
-        .then(response => response.text())
-        .then(html => {
-            // Implementasi partial refresh jika diperlukan
-            console.log('Dashboard refreshed');
-        })
-        .catch(error => console.error('Refresh error:', error));
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const notificationRow = document.querySelector(`tr[data-id="${notificationId}"]`);
+                if (notificationRow) {
+                    notificationRow.classList.remove('notification-new');
+                }
+            }
+        });
     }
 </script>
 @endpush

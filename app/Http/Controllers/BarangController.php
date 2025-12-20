@@ -120,35 +120,18 @@ class BarangController extends Controller
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        $barang = Barang::with(['pesananDetails' => function($query) {
-            $query->select('id_pesanan', 'id_barang', 'jumlah', 'created_at')
-                  ->orderBy('created_at', 'desc')
-                  ->limit(10);
-        }])->findOrFail($id);
-
-        return view('barang.show', compact('barang'));
-    }
-
-    /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Barang $barang)
     {
-        $barang = Barang::findOrFail($id);
         return view('barang.edit', compact('barang'));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Barang $barang)
     {
-        $barang = Barang::findOrFail($id);
-
         $validated = $request->validate([
             'nama_barang' => [
                 'required',
@@ -190,37 +173,53 @@ class BarangController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Barang $barang)
     {
-        $barang = Barang::withCount(['pesananDetails'])->findOrFail($id);
+        // Check if barang has been used in orders
+        $usedInOrder = DB::table('pesanan_detail')
+            ->where('id_barang', $barang->id_barang)
+            ->exists();
 
-        // Safety checks
+        if ($usedInOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak dapat menghapus barang yang pernah digunakan dalam pesanan!'
+            ]);
+        }
+
+        // Check if barang still has stock
         if ($barang->stok > 0) {
-            return redirect()->route('barang.index')
-                ->with('error', 'Tidak dapat menghapus barang yang masih memiliki stok!');
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak dapat menghapus barang yang masih memiliki stok!'
+            ]);
         }
 
-        if ($barang->pesanan_details_count > 0) {
-            return redirect()->route('barang.index')
-                ->with('error', 'Tidak dapat menghapus barang yang pernah digunakan dalam pesanan!');
+        try {
+            // Use transaction for data consistency
+            DB::transaction(function () use ($barang) {
+                $barang->delete();
+            });
+
+            // Clear cache
+            $this->clearBarangCache();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Barang berhasil dihapus!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ]);
         }
-
-        // Use transaction
-        DB::transaction(function () use ($barang) {
-            $barang->delete();
-        });
-
-        // Clear cache
-        $this->clearBarangCache();
-
-        return redirect()->route('barang.index')
-            ->with('success', 'Barang berhasil dihapus!');
     }
 
     /**
      * Update stock for a specific item.
      */
-    public function updateStock(Request $request, string $id)
+    public function updateStock(Request $request, Barang $barang)
     {
         $request->validate([
             'operation' => ['required', Rule::in(['tambah', 'kurangi'])],
@@ -228,39 +227,53 @@ class BarangController extends Controller
             'keterangan' => 'nullable|string|max:255',
         ]);
 
-        $barang = Barang::findOrFail($id);
-
-        DB::transaction(function () use ($request, $barang) {
-            $oldStock = $barang->stok;
-            
-            if ($request->operation === 'tambah') {
-                $newStock = $oldStock + $request->jumlah;
-            } else {
-                // Check if enough stock
-                if ($oldStock < $request->jumlah) {
-                    throw new \Exception('Stok tidak mencukupi untuk dikurangi');
+        try {
+            DB::transaction(function () use ($request, $barang) {
+                $oldStock = $barang->stok;
+                
+                if ($request->operation === 'tambah') {
+                    $newStock = $oldStock + $request->jumlah;
+                    
+                    // Catat stok masuk
+                    DB::table('stok_masuk')->insert([
+                        'id_barang' => $barang->id_barang,
+                        'jumlah' => $request->jumlah,
+                        'keterangan' => $request->keterangan ?: 'Penambahan stok manual',
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                } else {
+                    // Check if enough stock
+                    if ($oldStock < $request->jumlah) {
+                        throw new \Exception('Stok tidak mencukupi untuk dikurangi. Stok tersedia: ' . $oldStock);
+                    }
+                    $newStock = $oldStock - $request->jumlah;
+                    
+                    // Catat stok keluar
+                    DB::table('stok_keluar')->insert([
+                        'id_barang' => $barang->id_barang,
+                        'jumlah' => $request->jumlah,
+                        'keterangan' => $request->keterangan ?: 'Pengurangan stok manual',
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
                 }
-                $newStock = $oldStock - $request->jumlah;
-            }
 
-            $barang->update(['stok' => $newStock]);
+                $barang->update(['stok' => $newStock]);
+            });
 
-            // Log stock change (if you have a stock_mutations table)
-            // StockMutation::create([
-            //     'id_barang' => $barang->id,
-            //     'old_stock' => $oldStock,
-            //     'new_stock' => $newStock,
-            //     'operation' => $request->operation,
-            //     'jumlah' => $request->jumlah,
-            //     'keterangan' => $request->keterangan,
-            //     'user_id' => auth()->id(),
-            // ]);
-        });
+            $this->clearBarangCache();
 
-        $this->clearBarangCache();
-
-        return redirect()->route('barang.index')
-            ->with('success', 'Stok berhasil diperbarui!');
+            return response()->json([
+                'success' => true,
+                'message' => 'Stok berhasil diperbarui! Stok baru: ' . $barang->fresh()->stok
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -287,64 +300,11 @@ class BarangController extends Controller
     }
 
     /**
-     * Export barang data.
-     */
-    public function export(Request $request)
-    {
-        $barangs = Barang::orderBy('id_barang', 'desc')->get();
-        
-        $data = [
-            'title' => 'Data Barang',
-            'date' => now()->format('d/m/Y'),
-            'barangs' => $barangs,
-            'total_nilai' => $barangs->sum(fn($item) => $item->harga * $item->stok),
-        ];
-        
-        if ($request->has('format') && $request->format === 'csv') {
-            return $this->exportToCSV($barangs);
-        }
-        
-        return view('barang.export', $data);
-    }
-
-    /**
      * Clear barang-related cache.
      */
     protected function clearBarangCache(): void
     {
-        Cache::flush();
-        // Or specific cache clearing:
-        // Cache::forget('barang_index_*'); // if using tagged cache
-    }
-
-    /**
-     * Export to CSV.
-     */
-    protected function exportToCSV($barangs)
-    {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="barang_' . date('Y-m-d') . '.csv"',
-        ];
-
-        $callback = function() use ($barangs) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['ID', 'Nama Barang', 'Jenis', 'Harga', 'Stok', 'Total Nilai']);
-            
-            foreach ($barangs as $barang) {
-                fputcsv($file, [
-                    $barang->id_barang,
-                    $barang->nama_barang,
-                    ucfirst($barang->jenis),
-                    number_format($barang->harga, 0, ',', '.'),
-                    $barang->stok,
-                    number_format($barang->harga * $barang->stok, 0, ',', '.'),
-                ]);
-            }
-            
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        // Clear cache dengan pattern tertentu
+        Cache::forget('barang_index_*');
     }
 }

@@ -125,4 +125,10 @@ class LaporanController extends Controller
             'lastUpdate'
         ));
     }
+
+    public function penjualan(Request $request)
+    {
+        return $this->index($request);
+    }
+
 }

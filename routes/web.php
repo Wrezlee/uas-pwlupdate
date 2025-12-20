@@ -40,7 +40,6 @@ Route::middleware('guest')->prefix('pembeli')->name('pembeli.')->group(function 
         Route::post('/', [PesananController::class, 'storeFromGuest'])
             ->name('store');
         
-        // PERBAIKI ROUTE INI - PASTIKAN SESUAI DENGAN METHOD DI CONTROLLER
         Route::get('/sukses/{id_pesanan}', [PesananController::class, 'success'])
             ->name('success')
             ->whereNumber('id_pesanan');
@@ -66,6 +65,12 @@ Route::middleware('auth')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
+    // Dashboard Notifications
+    Route::prefix('dashboard')->name('dashboard.')->controller(DashboardController::class)->group(function () {
+        Route::get('/notifications', 'notifications')->name('notifications');
+        Route::post('/notifications/{notificationId}/read', 'markAsRead')->name('notifications.read');
+    });
+    
     // =======================
     // BARANG MANAGEMENT
     // =======================
@@ -73,7 +78,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/create', 'create')->name('create');
         Route::post('/', 'store')->name('store');
-        Route::get('/export', 'export')->name('export');
+        // HAPUS ROUTE EXPORT - sudah tidak digunakan
+        // Route::get('/export', 'export')->name('export');
         Route::get('/{barang}/edit', 'edit')->name('edit');
         Route::put('/{barang}', 'update')->name('update');
         Route::delete('/{barang}', 'destroy')->name('destroy');
@@ -85,11 +91,8 @@ Route::middleware('auth')->group(function () {
     // PESANAN MANAGEMENT
     // =======================
     Route::resource('pesanan', PesananController::class)->except(['show']);
-    
-    // TAMBAHKAN ROUTE INI UNTUK UPDATE STATUS - PASTIKAN SEBELUM ROUTE SHOW
     Route::patch('/pesanan/{pesanan}/status', [PesananController::class, 'updateStatus'])
          ->name('pesanan.updateStatus');
-    
     Route::get('/pesanan/{pesanan}', [PesananController::class, 'show'])->name('pesanan.show');
     
     // =======================
@@ -103,7 +106,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/{stok_masuk}', 'update')->name('update');
         Route::delete('/{stok_masuk}', 'destroy')->name('destroy');
     });
-
         
     Route::prefix('stok-keluar')->name('stok.keluar.')->controller(StokKeluarController::class)->group(function () {
         Route::get('/', 'index')->name('index');
@@ -113,7 +115,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/{stok_keluar}', 'update')->name('update');
         Route::delete('/{stok_keluar}', 'destroy')->name('destroy');
     });
-
     
     // =======================
     // LAPORAN
@@ -129,7 +130,6 @@ Route::middleware('auth')->group(function () {
             Route::get('/stok', 'exportStok')->name('stok');
         });
     });
-
     
     // =======================
     // PROFILE
@@ -138,18 +138,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/edit', 'edit')->name('edit');
         Route::put('/update', 'update')->name('update');
-        Route::put('/update-password', 'updatePassword')->name('update-password'); // Perbaiki typo
+        Route::put('/update-password', 'updatePassword')->name('update-password');
     });
-
     
-    // =======================
-    // SETTINGS
-    // =======================
+    // Settings
     Route::view('/settings', 'settings.index')->name('settings');
     
-    // =======================
-    // API ROUTES
-    // =======================
+    // API Routes
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->name('dashboard.stats');
         Route::get('/pesanan/chart-data', [PesananController::class, 'chartData'])->name('pesanan.chart');

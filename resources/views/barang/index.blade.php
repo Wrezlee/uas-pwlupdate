@@ -16,7 +16,11 @@
         background-color: rgba(0, 123, 255, 0.05);
     }
     .action-buttons {
-        min-width: 120px;
+        min-width: 90px; /* Diperkecil karena tombol berkurang */
+    }
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
     }
 </style>
 @endpush
@@ -41,9 +45,9 @@
                         @endif
                     </div>
                     <div>
-                        <a href="{{ route('barang.export') }}" class="btn btn-outline-success btn-sm me-2">
-                            <i class="fas fa-file-export me-1"></i> Export
-                        </a>
+                        <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm me-2">
+                            <i class="fas fa-times me-1"></i> Clear Filters
+                        </button>
                         <a href="{{ route('barang.create') }}" class="btn btn-primary btn-sm">
                             <i class="fas fa-plus-circle me-1"></i> Tambah Barang
                         </a>
@@ -99,8 +103,8 @@
                                     <th width="12%" class="text-center">Jenis</th>
                                     <th width="15%" class="text-end">Harga</th>
                                     <th width="12%" class="text-center">Stok</th>
-                                    <th width="20%" class="text-center">Total Nilai</th>
-                                    <th width="16%" class="text-center action-buttons">Aksi</th>
+                                    <th width="20%" class="text-end">Total Nilai</th>
+                                    <th width="12%" class="text-center action-buttons">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -151,22 +155,17 @@
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <div class="btn-group" role="group">
+                                        <div class="btn-group btn-group-sm" role="group">
                                             <a href="{{ route('barang.edit', $barang->id_barang) }}" 
-                                               class="btn btn-outline-primary btn-sm" 
-                                               title="Edit">
+                                               class="btn btn-outline-primary" 
+                                               title="Edit" data-bs-toggle="tooltip">
                                                 <i class="fas fa-edit"></i>
                                             </a>
+                                            <!-- HAPUS TOMBOL UPDATE STOK -->
                                             <button type="button" 
-                                                    class="btn btn-outline-warning btn-sm" 
-                                                    onclick="updateStock({{ $barang->id_barang }})"
-                                                    title="Update Stok">
-                                                <i class="fas fa-exchange-alt"></i>
-                                            </button>
-                                            <button type="button" 
-                                                    class="btn btn-outline-danger btn-sm" 
+                                                    class="btn btn-outline-danger" 
                                                     onclick="confirmDelete({{ $barang->id_barang }}, '{{ $barang->nama_barang }}')"
-                                                    title="Hapus">
+                                                    title="Hapus" data-bs-toggle="tooltip">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -279,69 +278,25 @@
     </div>
     @endif
 </div>
-
-<!-- Update Stock Modal -->
-<div class="modal fade" id="updateStockModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Update Stok Barang</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="updateStockForm" method="POST">
-                @csrf
-                <div class="modal-body">
-                    <input type="hidden" name="operation" id="operationType">
-                    <div class="mb-3">
-                        <label class="form-label">Jenis Operasi</label>
-                        <div class="btn-group w-100" role="group">
-                            <button type="button" class="btn btn-success" onclick="setOperation('tambah')">
-                                <i class="fas fa-plus me-1"></i> Tambah Stok
-                            </button>
-                            <button type="button" class="btn btn-warning" onclick="setOperation('kurangi')">
-                                <i class="fas fa-minus me-1"></i> Kurangi Stok
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Jumlah</label>
-                        <input type="number" name="jumlah" class="form-control" 
-                               min="1" max="9999" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Keterangan (Opsional)</label>
-                        <textarea name="keterangan" class="form-control" rows="2" 
-                                  placeholder="Contoh: Restok dari supplier..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary">Simpan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    let currentBarangId = null;
-    
     function confirmDelete(id, name) {
         Swal.fire({
             title: 'Konfirmasi Hapus',
-            html: `Apakah Anda yakin ingin menghapus <strong>"${name}"</strong>?<br>
-                  <small class="text-danger">Barang yang pernah digunakan dalam pesanan tidak dapat dihapus.</small>`,
+            html: `Apakah Anda yakin ingin menghapus barang <strong>"${name}"</strong>?<br>
+                  <small class="text-danger">Barang yang pernah digunakan dalam pesanan atau masih memiliki stok tidak dapat dihapus.</small>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
             confirmButtonText: 'Ya, Hapus!',
-            cancelButtonText: 'Batal'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                fetch(`/barang/${id}`, {
+            cancelButtonText: 'Batal',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                return fetch(`{{ url('barang') }}/${id}`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -349,99 +304,58 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
-                        Swal.fire(
-                            'Terhapus!',
-                            'Barang berhasil dihapus.',
-                            'success'
-                        ).then(() => {
-                            window.location.reload();
-                        });
+                        return { success: true, message: data.message };
                     } else {
-                        Swal.fire(
-                            'Gagal!',
-                            data.message || 'Tidak dapat menghapus barang.',
-                            'error'
-                        );
+                        throw new Error(data.message || 'Gagal menghapus barang');
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire(
-                        'Error!',
-                        'Terjadi kesalahan saat menghapus.',
-                        'error'
-                    );
+                    throw new Error(error.message || 'Terjadi kesalahan');
                 });
             }
-        });
-    }
-    
-    function updateStock(id) {
-        currentBarangId = id;
-        document.getElementById('operationType').value = '';
-        document.querySelector('#updateStockForm input[name="jumlah"]').value = '';
-        document.querySelector('#updateStockForm textarea[name="keterangan"]').value = '';
-        
-        const modal = new bootstrap.Modal(document.getElementById('updateStockModal'));
-        modal.show();
-    }
-    
-    function setOperation(type) {
-        document.getElementById('operationType').value = type;
-        const buttons = document.querySelectorAll('#updateStockForm .btn-group button');
-        buttons.forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-    }
-    
-    // Handle form submission
-    document.getElementById('updateStockForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        if (!document.getElementById('operationType').value) {
-            Swal.fire('Peringatan', 'Pilih jenis operasi terlebih dahulu!', 'warning');
-            return;
-        }
-        
-        const formData = new FormData(this);
-        
-        fetch(`/barang/${currentBarangId}/update-stock`, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                Swal.fire(
-                    'Berhasil!',
-                    data.message,
-                    'success'
-                ).then(() => {
-                    window.location.reload();
-                });
-            } else {
-                Swal.fire(
-                    'Gagal!',
-                    data.message || 'Terjadi kesalahan.',
-                    'error'
-                );
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (result.value && result.value.success) {
+                    Swal.fire({
+                        title: 'Berhasil!',
+                        text: result.value.message || 'Barang berhasil dihapus.',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                }
             }
-        })
-        .catch(error => {
-            Swal.fire('Error!', 'Terjadi kesalahan jaringan.', 'error');
+        }).catch(error => {
+            Swal.fire({
+                title: 'Gagal!',
+                text: error.message || 'Terjadi kesalahan saat menghapus.',
+                icon: 'error',
+                confirmButtonColor: '#d33',
+            });
         });
-    });
-    
-    // Auto focus search on page load
-    @if(request()->has('search'))
-        document.querySelector('input[name="search"]').focus();
-    @endif
+    }
     
     // Clear filters
     function clearFilters() {
         window.location.href = '{{ route("barang.index") }}';
     }
+    
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
 </script>
 @endpush
