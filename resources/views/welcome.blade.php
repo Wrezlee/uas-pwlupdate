@@ -156,30 +156,77 @@
             margin-bottom: 15px;
         }
         
-        .product-badge {
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            background: var(--secondary-color);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
+        .stats-box {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 25px 20px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border: 2px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
         
-        .stats-box {
-            background: rgba(255,255,255,0.9);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        .stats-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .stats-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         }
         
         .stats-number {
-            font-size: 2.5rem;
-            font-weight: bold;
+            font-size: 2.8rem;
+            font-weight: 800;
             color: var(--primary-color);
+            margin: 10px 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .stats-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2e3a4e;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stats-desc {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 0;
+        }
+        
+        .stats-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+        
+        .stats-icon.gas {
+            color: var(--primary-color);
+        }
+        
+        .stats-icon.galon {
+            color: var(--secondary-color);
+        }
+        
+        .stats-icon.time {
+            color: #ffc107;
+        }
+        
+        .stats-icon.delivery {
+            color: #0dcaf0;
         }
     </style>
 </head>
@@ -188,7 +235,7 @@
     <div class="hero-section">
         <div class="container">
             <div class="row align-items-center">
-                <div class="col-lg-6">
+                <div class="col-lg-5">
                     <div class="logo-container">
                         <div class="logo">
                             <i class="bi bi-fire logo-icon"></i>
@@ -197,7 +244,7 @@
                         <p class="lead mb-4">Solusi Lengkap Kebutuhan Gas & Galon Air Minum Anda</p>
                     </div>
                     
-                    <div class="d-flex gap-3 justify-content-center">
+                    <div class="d-flex flex-wrap gap-3 justify-content-center">
                         <span class="badge bg-light text-danger p-2">
                             <i class="bi bi-fire me-1"></i>Gas LPG
                         </span>
@@ -209,34 +256,45 @@
                         </span>
                     </div>
                 </div>
-                <div class="col-lg-6">
-                    <div class="row text-center">
-                        <div class="col-6 mb-4">
+                <div class="col-lg-7 mt-4 mt-lg-0">
+                    <div class="row g-4">
+                        <!-- Tersedia Ukuran -->
+                        <div class="col-6 col-md-3">
                             <div class="stats-box">
-                                <i class="bi bi-fire feature-icon"></i>
+                                <i class="bi bi-fire stats-icon gas"></i>
                                 <div class="stats-number">3Kg</div>
-                                <p class="mb-0">Tersedia Ukuran</p>
+                                <div class="stats-label">TERSEDIA UKURAN</div>
+                                <p class="stats-desc">Gas 3Kg</p>
                             </div>
                         </div>
-                        <div class="col-6 mb-4">
+                        
+                        <!-- Galon Standar -->
+                        <div class="col-6 col-md-3">
                             <div class="stats-box">
-                                <i class="bi bi-droplet feature-icon"></i>
+                                <i class="bi bi-droplet stats-icon galon"></i>
                                 <div class="stats-number">20L</div>
-                                <p class="mb-0">Galon Standar</p>
+                                <div class="stats-label">GALON STANDAR</div>
+                                <p class="stats-desc">Ukuran paling popular</p>
                             </div>
                         </div>
-                        <div class="col-6">
+                        
+                        <!-- Layanan -->
+                        <div class="col-6 col-md-3">
                             <div class="stats-box">
-                                <i class="bi bi-clock feature-icon"></i>
+                                <i class="bi bi-clock stats-icon time"></i>
                                 <div class="stats-number">24/7</div>
-                                <p class="mb-0">Layanan</p>
+                                <div class="stats-label">LAYANAN</div>
+                                <p class="stats-desc">Siap melayani kapanpun</p>
                             </div>
                         </div>
-                        <div class="col-6">
+                        
+                        <!-- Pengantaran -->
+                        <div class="col-6 col-md-3">
                             <div class="stats-box">
-                                <i class="bi bi-truck feature-icon"></i>
+                                <i class="bi bi-truck stats-icon delivery"></i>
                                 <div class="stats-number">Gratis</div>
-                                <p class="mb-0">Pengantaran</p>
+                                <div class="stats-label">PENGANTARAN</div>
+                                <p class="stats-desc">Tanpa biaya tambahan</p>
                             </div>
                         </div>
                     </div>
@@ -327,64 +385,8 @@
             </div>
         </div>
         
-        <!-- Products Section -->
-        <div class="row mt-5 pt-5">
-            <div class="col-12 text-center mb-4">
-                <h3 class="fw-bold">Produk Kami</h3>
-                <p class="text-muted">Berbagai pilihan gas dan galon berkualitas</p>
-            </div>
-            
-            <div class="col-md-4 mb-4">
-                <div class="card border-0 shadow-sm h-100 position-relative">
-                    <span class="product-badge">Gas LPG</span>
-                    <div class="card-body text-center p-4">
-                        <div class="feature-icon text-danger">
-                            <i class="bi bi-fire"></i>
-                        </div>
-                        <h5 class="fw-bold">Gas 3Kg</h5>
-                        <p>Gas LPG 3Kg untuk kebutuhan rumah tangga kecil</p>
-                        <div class="d-grid">
-                            <button class="btn btn-outline-danger">Pesan Sekarang</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4 mb-4">
-                <div class="card border-0 shadow-sm h-100 position-relative">
-                    <span class="product-badge">Gas LPG</span>
-                    <div class="card-body text-center p-4">
-                        <div class="feature-icon text-danger">
-                            <i class="bi bi-fire"></i>
-                        </div>
-                        <h5 class="fw-bold">Gas 12Kg</h5>
-                        <p>Gas LPG 12Kg untuk kebutuhan rumah tangga besar</p>
-                        <div class="d-grid">
-                            <button class="btn btn-outline-danger">Pesan Sekarang</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4 mb-4">
-                <div class="card border-0 shadow-sm h-100 position-relative">
-                    <span class="product-badge">Galon Air</span>
-                    <div class="card-body text-center p-4">
-                        <div class="feature-icon text-success">
-                            <i class="bi bi-droplet"></i>
-                        </div>
-                        <h5 class="fw-bold">Galon 19L</h5>
-                        <p>Galon air minum isi ulang 19 liter berkualitas</p>
-                        <div class="d-grid">
-                            <button class="btn btn-outline-success">Pesan Sekarang</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
         <!-- Features Section -->
-        <div class="row mt-5">
+        <div class="row mt-5 pt-5">
             <div class="col-12 text-center mb-4">
                 <h3 class="fw-bold">Kenapa Memilih Kami?</h3>
                 <p class="text-muted">Layanan terbaik untuk kebutuhan gas dan galon Anda</p>
