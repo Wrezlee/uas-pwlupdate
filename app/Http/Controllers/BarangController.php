@@ -12,60 +12,90 @@ class BarangController extends Controller
 {
     // Cache duration in minutes
     protected const CACHE_DURATION = 10;
-    protected const ITEMS_PER_PAGE = 15;
+    protected const ITEMS_PER_PAGE = 20; // Increased for better UX
 
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $cacheKey = 'barang_index_' . md5(serialize($request->all()));
+        // Generate cache key based on request parameters
+        $cacheKey = 'barang_index_' . md5(json_encode($request->all()));
         
-        $data = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_DURATION), function () use ($request) {
-            $query = Barang::query();
-            
-            // Search functionality
-            if ($request->has('search') && $request->search) {
-                $search = $request->search;
-                $query->where(function($q) use ($search) {
-                    $q->where('nama_barang', 'LIKE', "%{$search}%")
-                      ->orWhere('jenis', 'LIKE', "%{$search}%");
-                });
-            }
-            
-            // Filter by jenis
-            if ($request->has('jenis') && in_array($request->jenis, ['gas', 'galon'])) {
-                $query->where('jenis', $request->jenis);
-            }
-            
-            // Sort functionality
-            $sortBy = $request->get('sort_by', 'id_barang');
-            $sortOrder = $request->get('sort_order', 'desc');
-            
-            $validSortColumns = ['id_barang', 'nama_barang', 'jenis', 'harga', 'stok', 'created_at'];
-            $sortBy = in_array($sortBy, $validSortColumns) ? $sortBy : 'id_barang';
-            $sortOrder = $sortOrder === 'asc' ? 'asc' : 'desc';
-            
-            $barangs = $query->orderBy($sortBy, $sortOrder)
-                ->paginate(self::ITEMS_PER_PAGE)
-                ->withQueryString();
-            
-            // Statistics
-            $stats = [
-                'total_barang' => Barang::count(),
-                'total_gas' => Barang::where('jenis', 'gas')->sum('stok'),
-                'total_galon' => Barang::where('jenis', 'galon')->sum('stok'),
-                'total_nilai' => Barang::sum(DB::raw('harga * stok')),
-            ];
+        // Use cache only for filtered searches, not for initial load
+        if ($request->hasAny(['search', 'jenis', 'sort_by', 'sort_order'])) {
+            $data = Cache::remember($cacheKey, now()->addMinutes(self::CACHE_DURATION), function () use ($request) {
+                return $this->getBarangData($request);
+            });
+        } else {
+            // For initial load, don't cache to get fresh data
+            $data = $this->getBarangData($request);
+        }
+        
+        return view('barang.index', $data);
+    }
+
+    /**
+     * Get optimized barang data with minimal queries
+     */
+    private function getBarangData(Request $request)
+    {
+        // Start with optimized query
+        $query = Barang::select(['id_barang', 'nama_barang', 'jenis', 'harga', 'stok', 'created_at']);
+        
+        // Search functionality - use exact match first for better performance
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                // Use exact match for ID
+                if (is_numeric($search)) {
+                    $q->where('id_barang', $search);
+                }
+                // For text search, use LIKE only if necessary
+                $q->orWhere('nama_barang', 'LIKE', "{$search}%") // Starts with for better performance
+                  ->orWhere('jenis', $search); // Exact match for jenis
+            });
+        }
+        
+        // Filter by jenis - exact match
+        if ($request->has('jenis') && in_array($request->jenis, ['gas', 'galon'])) {
+            $query->where('jenis', $request->jenis);
+        }
+        
+        // Sort functionality - use index-friendly sorting
+        $sortBy = $request->get('sort_by', 'id_barang');
+        $sortOrder = $request->get('sort_order', 'desc');
+        
+        $validSortColumns = ['id_barang', 'nama_barang', 'jenis', 'harga', 'stok', 'created_at'];
+        $sortBy = in_array($sortBy, $validSortColumns) ? $sortBy : 'id_barang';
+        $sortOrder = $sortOrder === 'asc' ? 'asc' : 'desc';
+        
+        $barangs = $query->orderBy($sortBy, $sortOrder)
+            ->paginate(self::ITEMS_PER_PAGE)
+            ->withQueryString();
+        
+        // Optimized statistics - calculate in single query
+        $stats = Cache::remember('barang_stats', now()->addMinutes(5), function () {
+            $totalBarang = Barang::count();
+            $stockTotals = Barang::selectRaw("
+                SUM(CASE WHEN jenis = 'gas' THEN stok ELSE 0 END) as total_gas,
+                SUM(CASE WHEN jenis = 'galon' THEN stok ELSE 0 END) as total_galon,
+                SUM(harga * stok) as total_nilai
+            ")->first();
             
             return [
-                'barangs' => $barangs,
-                'stats' => $stats,
-                'filters' => $request->only(['search', 'jenis', 'sort_by', 'sort_order'])
+                'total_barang' => $totalBarang,
+                'total_gas' => $stockTotals->total_gas ?? 0,
+                'total_galon' => $stockTotals->total_galon ?? 0,
+                'total_nilai' => $stockTotals->total_nilai ?? 0,
             ];
         });
         
-        return view('barang.index', $data);
+        return [
+            'barangs' => $barangs,
+            'stats' => $stats,
+            'filters' => $request->only(['search', 'jenis', 'sort_by', 'sort_order'])
+        ];
     }
 
     /**
@@ -102,21 +132,29 @@ class BarangController extends Controller
             'stok.max'             => 'Stok terlalu besar',
         ]);
 
-        // Use transaction for data consistency
-        DB::transaction(function () use ($validated) {
+        try {
+            DB::beginTransaction();
+            
             Barang::create([
                 'nama_barang' => $validated['nama_barang'],
                 'jenis'       => $validated['jenis'],
                 'harga'       => $validated['harga'],
                 'stok'        => $validated['stok'],
             ]);
-        });
+            
+            DB::commit();
+            
+            // Clear relevant caches
+            $this->clearBarangCache();
+            Cache::forget('barang_stats');
 
-        // Clear cache
-        $this->clearBarangCache();
-
-        return redirect()->route('barang.index')
-            ->with('success', 'Barang berhasil ditambahkan!');
+            return redirect()->route('barang.index')
+                ->with('success', 'Barang berhasil ditambahkan!');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menambahkan barang: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -140,7 +178,6 @@ class BarangController extends Controller
             ],
             'jenis'       => ['required', Rule::in(['gas', 'galon'])],
             'harga'       => 'required|numeric|min:0|max:999999999',
-            // Stok tidak diupdate di sini - gunakan method khusus untuk update stok
         ], [
             'nama_barang.required' => 'Nama barang harus diisi',
             'nama_barang.max'      => 'Nama barang maksimal 50 karakter',
@@ -153,21 +190,28 @@ class BarangController extends Controller
             'harga.max'            => 'Harga terlalu besar',
         ]);
 
-        // Use transaction for data consistency
-        DB::transaction(function () use ($barang, $validated) {
+        try {
+            DB::beginTransaction();
+            
             $barang->update([
                 'nama_barang' => $validated['nama_barang'],
                 'jenis'       => $validated['jenis'],
                 'harga'       => $validated['harga'],
-                // Stok tidak diubah
             ]);
-        });
+            
+            DB::commit();
+            
+            // Clear relevant caches
+            $this->clearBarangCache();
+            Cache::forget('barang_stats');
 
-        // Clear cache
-        $this->clearBarangCache();
-
-        return redirect()->route('barang.index')
-            ->with('success', 'Barang berhasil diperbarui!');
+            return redirect()->route('barang.index')
+                ->with('success', 'Barang berhasil diperbarui!');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal memperbarui barang: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -196,19 +240,23 @@ class BarangController extends Controller
         }
 
         try {
-            // Use transaction for data consistency
-            DB::transaction(function () use ($barang) {
-                $barang->delete();
-            });
-
-            // Clear cache
+            DB::beginTransaction();
+            
+            $barang->delete();
+            
+            DB::commit();
+            
+            // Clear relevant caches
             $this->clearBarangCache();
+            Cache::forget('barang_stats');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Barang berhasil dihapus!'
             ]);
+            
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -217,83 +265,23 @@ class BarangController extends Controller
     }
 
     /**
-     * Update stock for a specific item.
-     */
-    public function updateStock(Request $request, Barang $barang)
-    {
-        $request->validate([
-            'operation' => ['required', Rule::in(['tambah', 'kurangi'])],
-            'jumlah'    => 'required|integer|min:1|max:9999',
-            'keterangan' => 'nullable|string|max:255',
-        ]);
-
-        try {
-            DB::transaction(function () use ($request, $barang) {
-                $oldStock = $barang->stok;
-                
-                if ($request->operation === 'tambah') {
-                    $newStock = $oldStock + $request->jumlah;
-                    
-                    // Catat stok masuk
-                    DB::table('stok_masuk')->insert([
-                        'id_barang' => $barang->id_barang,
-                        'jumlah' => $request->jumlah,
-                        'keterangan' => $request->keterangan ?: 'Penambahan stok manual',
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]);
-                } else {
-                    // Check if enough stock
-                    if ($oldStock < $request->jumlah) {
-                        throw new \Exception('Stok tidak mencukupi untuk dikurangi. Stok tersedia: ' . $oldStock);
-                    }
-                    $newStock = $oldStock - $request->jumlah;
-                    
-                    // Catat stok keluar
-                    DB::table('stok_keluar')->insert([
-                        'id_barang' => $barang->id_barang,
-                        'jumlah' => $request->jumlah,
-                        'keterangan' => $request->keterangan ?: 'Pengurangan stok manual',
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]);
-                }
-
-                $barang->update(['stok' => $newStock]);
-            });
-
-            $this->clearBarangCache();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Stok berhasil diperbarui! Stok baru: ' . $barang->fresh()->stok
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
      * Get barang data for API/select2.
      */
-    public function getBarangData(Request $request)
+    public function getBarangDataApi(Request $request)
     {
-        $query = Barang::where('stok', '>', 0);
+        $query = Barang::select('id_barang', 'nama_barang', 'harga', 'stok', 'jenis')
+            ->where('stok', '>', 0);
         
         if ($request->has('search')) {
-            $query->where('nama_barang', 'LIKE', "%{$request->search}%");
+            $query->where('nama_barang', 'LIKE', "{$request->search}%"); // Starts with for performance
         }
         
         if ($request->has('jenis')) {
             $query->where('jenis', $request->jenis);
         }
         
-        $barangs = $query->select('id_barang', 'nama_barang', 'harga', 'stok', 'jenis')
-            ->orderBy('nama_barang')
-            ->limit(50)
+        $barangs = $query->orderBy('nama_barang')
+            ->limit(20) // Reduced limit for better performance
             ->get();
             
         return response()->json($barangs);
@@ -304,7 +292,7 @@ class BarangController extends Controller
      */
     protected function clearBarangCache(): void
     {
-        // Clear cache dengan pattern tertentu
-        Cache::forget('barang_index_*');
+        // Clear only barang index cache
+        Cache::forget('barang_stats');
     }
 }
