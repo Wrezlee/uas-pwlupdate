@@ -501,11 +501,6 @@
                             <input type="text" class="form-control" id="no_hp" name="no_hp" 
                                    placeholder="0812-3456-7890" required value="{{ old('no_hp') }}">
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email (Opsional)</label>
-                            <input type="email" class="form-control" id="email" name="email" 
-                                   placeholder="nama@email.com" value="{{ old('email') }}">
-                        </div>
                         <div class="col-12 mb-3">
                             <label for="alamat" class="form-label form-required">Alamat Pengiriman</label>
                             <textarea class="form-control" id="alamat" name="alamat" rows="3" 
@@ -563,20 +558,6 @@
                         
                         <input type="hidden" name="total_harga" id="total_harga_input" value="0">
                     @endif
-                </div>
-            </div>
-
-            <!-- Step 3: Catatan -->
-            <div class="card card-form">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-chat-text me-2"></i>Catatan Tambahan
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <textarea class="form-control" id="catatan" name="catatan" rows="3" 
-                              placeholder="Contoh: Waktu pengantaran, lokasi spesifik, atau permintaan khusus (opsional)">{{ old('catatan') }}</textarea>
-                    <div class="form-text">Contoh: "Tolong antar jam 2-4 siang", "Tinggal di lantai 3", "Isi tabung gas yang penuh"</div>
                 </div>
             </div>
 
