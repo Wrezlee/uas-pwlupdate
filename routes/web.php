@@ -40,9 +40,10 @@ Route::middleware('guest')->prefix('pembeli')->name('pembeli.')->group(function 
         Route::post('/', [PesananController::class, 'storeFromGuest'])
             ->name('store');
         
-        Route::get('/sukses/{pesanan}', [PesananController::class, 'success'])
+        // PERBAIKI ROUTE INI - PASTIKAN SESUAI DENGAN METHOD DI CONTROLLER
+        Route::get('/sukses/{id_pesanan}', [PesananController::class, 'success'])
             ->name('success')
-            ->whereNumber('pesanan');
+            ->whereNumber('id_pesanan');
     });
 });
 
@@ -135,7 +136,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/edit', 'edit')->name('edit');
         Route::put('/update', 'update')->name('update');
-        Route::put('/update-password', 'update-password')->name('update-password');
+        Route::put('/update-password', 'updatePassword')->name('update-password'); // Perbaiki typo
     });
 
     

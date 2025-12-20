@@ -103,10 +103,10 @@
                 </h1>
                 <p class="text-muted mb-4">Terima kasih telah memesan di Rumah Gas dan Galon. Pesanan Anda akan segera kami proses.</p>
                 
-                @if(session('success'))
+                @if(session('info'))
                     <div class="alert alert-success">
                         <i class="bi bi-check-circle me-2"></i>
-                        {{ session('success') }}
+                        {{ session('info') }}
                     </div>
                 @endif
             </div>
@@ -126,13 +126,20 @@
                     <i class="bi bi-receipt me-2"></i>Detail Pesanan
                 </h5>
                 <div class="row">
+                    @php
+                        // Ambil detail pertama untuk ditampilkan
+                        $firstDetail = $pesanan->details->first();
+                        $barang = $firstDetail ? $firstDetail->barang : null;
+                        $totalItems = $pesanan->details->sum('jumlah');
+                    @endphp
+                    
                     <div class="col-md-6 mb-2">
                         <span class="text-muted">Kode Pesanan:</span>
-                        <div class="fw-bold order-code">{{ $pesanan->kode_pesanan }}</div>
+                        <div class="fw-bold order-code">#{{ str_pad($pesanan->id_pesanan, 6, '0', STR_PAD_LEFT) }}</div>
                     </div>
                     <div class="col-md-6 mb-2">
                         <span class="text-muted">Tanggal:</span>
-                        <div class="fw-bold">{{ $pesanan->created_at->format('d/m/Y H:i') }}</div>
+                        <div class="fw-bold">{{ \Carbon\Carbon::parse($pesanan->created_at ?? now())->format('d/m/Y H:i') }}</div>
                     </div>
                     <div class="col-md-6 mb-2">
                         <span class="text-muted">Nama Pembeli:</span>
@@ -146,17 +153,29 @@
                         <span class="text-muted">Alamat Pengiriman:</span>
                         <div class="fw-bold">{{ $pesanan->alamat }}</div>
                     </div>
-                    <div class="col-md-6 mb-2">
-                        <span class="text-muted">Produk:</span>
-                        <div class="fw-bold">{{ $pesanan->barang->nama_barang ?? '-' }}</div>
+                    
+                    <!-- Multiple items display -->
+                    <div class="col-12 mb-3">
+                        <span class="text-muted">Produk yang dipesan:</span>
+                        <div class="mt-2">
+                            @foreach($pesanan->details as $detail)
+                                <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+                                    <div>
+                                        <i class="bi {{ $detail->barang && stripos($detail->barang->nama_barang, 'gas') !== false ? 'bi-fire text-danger' : 'bi-droplet text-success' }} me-2"></i>
+                                        {{ $detail->barang->nama_barang ?? 'Barang' }}
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold">Rp {{ number_format($detail->harga ?? 0, 0, ',', '.') }} × {{ $detail->jumlah }}</div>
+                                        <small class="text-muted">Subtotal: Rp {{ number_format($detail->subtotal ?? 0, 0, ',', '.') }}</small>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
+                    
                     <div class="col-md-6 mb-2">
-                        <span class="text-muted">Jumlah:</span>
-                        <div class="fw-bold">{{ $pesanan->jumlah }} item</div>
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <span class="text-muted">Harga Satuan:</span>
-                        <div class="fw-bold">Rp {{ number_format($pesanan->barang->harga ?? 0, 0, ',', '.') }}</div>
+                        <span class="text-muted">Total Jumlah:</span>
+                        <div class="fw-bold">{{ $totalItems }} item</div>
                     </div>
                     <div class="col-md-6 mb-2">
                         <span class="text-muted">Total Harga:</span>
@@ -164,12 +183,18 @@
                     </div>
                     <div class="col-12 mb-2">
                         <span class="text-muted">Status:</span>
-                        <span class="badge bg-warning">{{ ucfirst($pesanan->status) }}</span>
+                        <span class="badge 
+                            @if($pesanan->status == 'pending') bg-warning 
+                            @elseif($pesanan->status == 'diproses') bg-info 
+                            @else bg-success @endif">
+                            {{ ucfirst($pesanan->status) }}
+                        </span>
                     </div>
-                    @if($pesanan->catatan)
+                    
+                    @if($firstDetail && $firstDetail->catatan)
                     <div class="col-12 mb-2">
                         <span class="text-muted">Catatan:</span>
-                        <div class="fw-bold">{{ $pesanan->catatan }}</div>
+                        <div class="fw-bold">{{ $firstDetail->catatan }}</div>
                     </div>
                     @endif
                 </div>

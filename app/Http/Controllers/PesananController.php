@@ -143,48 +143,76 @@ class PesananController extends Controller
             'no_hp'        => 'required|string|max:20',
             'email'        => 'nullable|email|max:255',
             'alamat'       => 'required|string',
-            'barang_id'    => 'required|exists:barang,id_barang',
-            'jumlah'       => 'required|integer|min:1',
+            'barang_id'    => 'required|array|min:1',
+            'barang_id.*'  => 'required|exists:barang,id_barang',
+            'jumlah'       => 'required|array|min:1',
+            'jumlah.*'     => 'required|integer|min:1',
+            'harga_satuan' => 'required|array|min:1',
+            'harga_satuan.*' => 'required|numeric',
             'catatan'      => 'nullable|string|max:500',
         ]);
 
-        DB::transaction(function () use ($request, &$pesanan) {
-            $barang = Barang::lockForUpdate()->findOrFail($request->barang_id);
+        try {
+            DB::beginTransaction();
 
-            if ($barang->stok < $request->jumlah) {
-                abort(422, "Stok {$barang->nama_barang} tidak cukup");
+            // Hitung total harga
+            $totalHarga = 0;
+            foreach ($request->barang_id as $index => $barangId) {
+                $jumlah = $request->jumlah[$index];
+                $hargaSatuan = $request->harga_satuan[$index];
+                $totalHarga += $jumlah * $hargaSatuan;
             }
 
-            $subtotal = $barang->harga * $request->jumlah;
-
+            // Buat pesanan
             $pesanan = Pesanan::create([
                 'nama_pembeli' => $request->nama_pembeli,
                 'no_hp'        => $request->no_hp,
                 'email'        => $request->email,
                 'alamat'       => $request->alamat,
-                'total_harga'  => $subtotal,
+                'total_harga'  => $totalHarga,
                 'status'       => 'pending',
+                'tanggal'      => now(),
             ]);
 
-            PesananDetail::create([
-                'id_pesanan' => $pesanan->id_pesanan,
-                'id_barang'  => $barang->id_barang,
-                'jumlah'     => $request->jumlah,
-                'harga'      => $barang->harga,
-                'subtotal'   => $subtotal,
-                'catatan'    => $request->catatan,
-            ]);
+            // Simpan detail pesanan dan kurangi stok
+            foreach ($request->barang_id as $index => $barangId) {
+                $barang = Barang::lockForUpdate()->findOrFail($barangId);
+                $jumlah = $request->jumlah[$index];
+                $hargaSatuan = $request->harga_satuan[$index];
 
-            $barang->decrement('stok', $request->jumlah);
-        });
+                if ($barang->stok < $jumlah) {
+                    throw new \Exception("Stok {$barang->nama_barang} tidak cukup. Stok tersedia: {$barang->stok}");
+                }
 
-        return redirect()->route('pembeli.pesanan.success', $pesanan->id_pesanan)
-                         ->with('info', 'Pesanan berhasil dibuat!');
+                PesananDetail::create([
+                    'id_pesanan' => $pesanan->id_pesanan,
+                    'id_barang'  => $barangId,
+                    'jumlah'     => $jumlah,
+                    'harga'      => $hargaSatuan,
+                    'subtotal'   => $jumlah * $hargaSatuan,
+                    'catatan'    => $index === 0 ? $request->catatan : null,
+                ]);
+
+                $barang->decrement('stok', $jumlah);
+            }
+
+            DB::commit();
+
+            return redirect()->route('pembeli.pesanan.success', ['id_pesanan' => $pesanan->id_pesanan])
+                            ->with('info', 'Pesanan berhasil dibuat!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
-    public function success(Pesanan $pesanan)
+    // ========================
+    // TAMBAHKAN METHOD INI!
+    // ========================
+    public function success($id_pesanan)
     {
-        $pesanan->load('details.barang');
-        return view('pesanan.success', compact('pesanan'));
+        $pesanan = Pesanan::with('details.barang')->findOrFail($id_pesanan);
+        return view('pesanan.success-guest', compact('pesanan'));
     }
 }
