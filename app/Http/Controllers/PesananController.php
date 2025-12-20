@@ -114,8 +114,104 @@ class PesananController extends Controller
         return view('pesanan.show', compact('pesanan'));
     }
 
+    // TAMBAHKAN METHOD INI: Update Status Pesanan
+    public function updateStatus(Request $request, Pesanan $pesanan)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,diproses,selesai'
+        ]);
+
+        $pesanan->update(['status' => $request->status]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status pesanan berhasil diperbarui!'
+        ]);
+    }
+
+    // TAMBAHKAN METHOD INI: Edit Pesanan
+    public function edit(Pesanan $pesanan)
+    {
+        $barang = Barang::orderBy('nama_barang')->get();
+        $pesanan->load('details.barang');
+        
+        return view('pesanan.edit', compact('pesanan', 'barang'));
+    }
+
+    // TAMBAHKAN METHOD INI: Update Pesanan
+    public function update(Request $request, Pesanan $pesanan)
+    {
+        $request->validate([
+            'nama_pembeli' => 'required|string|max:100',
+            'no_hp'        => 'required|string|max:20',
+            'alamat'       => 'required|string',
+            'tanggal'      => 'required|date',
+            'status'       => 'required|in:pending,diproses,selesai',
+            'barang'       => 'required|array|min:1',
+            'barang.*.id'  => 'required|exists:barang,id_barang',
+            'barang.*.jumlah' => 'required|integer|min:1',
+        ]);
+
+        DB::transaction(function () use ($request, $pesanan) {
+            // Kembalikan stok barang lama
+            foreach ($pesanan->details as $detail) {
+                Barang::where('id_barang', $detail->id_barang)
+                      ->increment('stok', $detail->jumlah);
+            }
+
+            // Hapus detail lama
+            $pesanan->details()->delete();
+
+            // Update data pesanan
+            $pesanan->update([
+                'nama_pembeli' => $request->nama_pembeli,
+                'no_hp'        => $request->no_hp,
+                'alamat'       => $request->alamat,
+                'tanggal'      => $request->tanggal,
+                'status'       => $request->status,
+                'total_harga'  => 0,
+            ]);
+
+            $total = 0;
+
+            // Tambah detail baru
+            foreach ($request->barang as $item) {
+                $barang = Barang::lockForUpdate()->findOrFail($item['id']);
+                $jumlah = $item['jumlah'];
+
+                if ($barang->stok < $jumlah) {
+                    abort(422, "Stok {$barang->nama_barang} tidak cukup");
+                }
+
+                $subtotal = $barang->harga * $jumlah;
+
+                PesananDetail::create([
+                    'id_pesanan' => $pesanan->id_pesanan,
+                    'id_barang'  => $barang->id_barang,
+                    'jumlah'     => $jumlah,
+                    'harga'      => $barang->harga,
+                    'subtotal'   => $subtotal,
+                ]);
+
+                $barang->decrement('stok', $jumlah);
+                $total += $subtotal;
+            }
+
+            $pesanan->update(['total_harga' => $total]);
+        });
+
+        return redirect()->route('pesanan.index')
+                         ->with('success', 'Pesanan berhasil diperbarui');
+    }
+
     public function destroy(Pesanan $pesanan)
     {
+        // Cek jika status sudah selesai, tidak bisa dihapus
+        if ($pesanan->status == 'selesai') {
+            return redirect()->route('pesanan.index')
+                             ->with('error', 'Pesanan yang sudah selesai tidak dapat dihapus');
+        }
+
         DB::transaction(function () use ($pesanan) {
             foreach ($pesanan->details as $detail) {
                 Barang::where('id_barang', $detail->id_barang)

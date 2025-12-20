@@ -85,10 +85,12 @@ Route::middleware('auth')->group(function () {
     // PESANAN MANAGEMENT
     // =======================
     Route::resource('pesanan', PesananController::class)->except(['show']);
-    Route::prefix('pesanan/{pesanan}')->controller(PesananController::class)->group(function () {
-        Route::get('/', 'show')->name('pesanan.show');
-        Route::patch('/status', 'updateStatus')->name('pesanan.status.update');
-    });
+    
+    // TAMBAHKAN ROUTE INI UNTUK UPDATE STATUS - PASTIKAN SEBELUM ROUTE SHOW
+    Route::patch('/pesanan/{pesanan}/status', [PesananController::class, 'updateStatus'])
+         ->name('pesanan.updateStatus');
+    
+    Route::get('/pesanan/{pesanan}', [PesananController::class, 'show'])->name('pesanan.show');
     
     // =======================
     // STOK MANAGEMENT

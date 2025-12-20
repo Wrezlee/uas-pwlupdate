@@ -332,74 +332,170 @@ function confirmDelete(id, name) {
     modal.show();
 }
 
-// Status Change with AJAX
-document.querySelectorAll('.status-change').forEach(button => {
-    button.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        const id = this.dataset.id;
-        const newStatus = this.dataset.status;
-        
-        if (!confirm(`Ubah status pesanan menjadi "${newStatus}"?`)) {
-            return;
-        }
-        
-        fetch(`/pesanan/${id}/status`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ status: newStatus })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                const toast = new bootstrap.Toast(document.getElementById('liveToast'));
-                document.getElementById('toastMessage').textContent = data.message;
-                toast.show();
-                
-                // Reload page after 1.5 seconds
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Terjadi kesalahan saat mengubah status');
-        });
-    });
-});
-
-// Quick Search with Debounce
-let searchTimeout;
-document.querySelector('input[name="search"]').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        document.getElementById('filterForm').submit();
-    }, 500);
-});
-
-// Set max date for date inputs to today
+// Status Change with AJAX - FIXED VERSION
 document.addEventListener('DOMContentLoaded', function() {
+    // Event delegation for status change buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('status-change') || 
+            e.target.closest('.status-change')) {
+            e.preventDefault();
+            
+            const target = e.target.classList.contains('status-change') ? 
+                          e.target : e.target.closest('.status-change');
+            
+            const id = target.dataset.id;
+            const newStatus = target.dataset.status;
+            
+            if (!id || !newStatus) return;
+            
+            if (!confirm(`Ubah status pesanan menjadi "${newStatus}"?`)) {
+                return;
+            }
+            
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            // Make AJAX request
+            fetch(`/pesanan/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken || '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    status: newStatus,
+                    _token: csrfToken || '{{ csrf_token() }}'
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    showToast(data.message);
+                    
+                    // Reload page after 1.5 seconds
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast('Gagal mengubah status', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Terjadi kesalahan saat mengubah status', 'error');
+            });
+        }
+    });
+    
+    // Function to show toast
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toastMessage');
+        
+        if (toastEl && toastBody) {
+            // Update toast content
+            toastBody.textContent = message;
+            
+            // Update toast header based on type
+            const toastHeader = toastEl.querySelector('.toast-header strong');
+            if (type === 'error') {
+                toastHeader.innerHTML = '<i class="fas fa-exclamation-circle text-danger me-2"></i>Error';
+            } else {
+                toastHeader.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>Berhasil';
+            }
+            
+            // Show toast
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+        } else {
+            // Fallback to alert
+            alert(message);
+        }
+    }
+    
+    // Quick Search with Debounce
+    let searchTimeout;
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        });
+    }
+    
+    // Set max date for date inputs to today
     const today = new Date().toISOString().split('T')[0];
     document.querySelectorAll('input[type="date"]').forEach(input => {
         input.max = today;
     });
     
     // Auto-focus search input if it has value
-    const searchInput = document.querySelector('input[name="search"]');
-    if (searchInput.value) {
+    if (searchInput && searchInput.value) {
         searchInput.focus();
     }
+    
+    // Disable delete button for completed orders
+    document.querySelectorAll('.btn-outline-danger').forEach(button => {
+        const statusBadge = button.closest('tr').querySelector('td:nth-child(6) .badge');
+        if (statusBadge && statusBadge.classList.contains('bg-success')) {
+            button.disabled = true;
+            button.title = 'Pesanan selesai tidak dapat dihapus';
+            button.classList.remove('btn-outline-danger');
+            button.classList.add('btn-outline-secondary');
+            
+            // Remove click event for disabled buttons
+            button.onclick = null;
+        }
+    });
 });
+
+// Function untuk tombol hapus biasa (tanpa modal)
+function deletePesanan(id, name) {
+    if (confirm(`Apakah Anda yakin ingin menghapus pesanan dari ${name}?\n\nPesanan yang sudah selesai tidak dapat dihapus.`)) {
+        // Check if order is completed
+        const statusBadge = document.querySelector(`tr:has(.btn-outline-danger[onclick*="${id}"]) .badge`);
+        if (statusBadge && statusBadge.classList.contains('bg-success')) {
+            alert('Pesanan yang sudah selesai tidak dapat dihapus!');
+            return false;
+        }
+        
+        // Create and submit form
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/pesanan/${id}`;
+        form.style.display = 'none';
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+        
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        
+        form.appendChild(csrfInput);
+        form.appendChild(methodInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+    return false;
+}
 </script>
 
 <!-- Toast for status updates -->
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-    <div id="liveToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="toast-header">
             <strong class="me-auto"><i class="fas fa-check-circle text-success me-2"></i>Berhasil</strong>
             <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
